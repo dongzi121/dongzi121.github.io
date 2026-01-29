@@ -3,115 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的网页 + 纯前端对话模型（无限制）</title>
+    <title>我的网页 + 通义千问对话</title>
     <link rel="stylesheet" href="style.css">
-    <!-- 引入 Transformers.js（纯前端运行对话模型，无需下载） -->
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.0"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>欢迎来到我的个人网页</h1>
-        <p>纯前端对话模型（完全开源、无次数限制、无需API/注册）👇</p>
-        <p>可以和我聊任何话题，模型在浏览器内运行，永久免费～</p>
-
-        <!-- 对话区域 -->
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages"></div>
-            <div class="chat-input">
-                <input type="text" id="userInput" placeholder="请输入你想聊的内容...">
-                <button id="sendBtn">发送</button>
-            </div>
+    <div class="chat-wrapper">
+        <h1>通义千问对话助手</h1>
+        <!-- 对话消息展示区 -->
+        <div class="chat-messages" id="chatMessages"></div>
+        <!-- 输入框与发送按钮 -->
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="请输入你要提问的内容...">
+            <button id="sendBtn">发送</button>
         </div>
     </div>
 
     <script>
+        // ************************ 唯一需要修改的地方 ************************
+        // 替换成你自己的通义千问 API-Key
+        const QWEN_API_KEY = "sk-dea6a0ce06544ac886faee67b69ac297";
+        // ******************************************************************
+
+        // 通义千问 OpenAI 兼容版接口（带免费跨域代理，解决前端跨域限制）
+        const API_URL = "https://proxy.cors.sh/https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
+
         // 获取页面元素
         const chatMessages = document.getElementById('chatMessages');
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        // 初始化对话模型（DistilGPT2，轻量开源，纯前端运行）
-        let generator = null;
-        // 对话历史（保存上下文，让回复更连贯）
-        let chatHistory = [];
+        // 对话上下文（保存历史消息，让回复更连贯）
+        let chatContext = [
+            { role: "system", content: "你是一个友好的AI助手，回答简洁明了，通俗易懂。" }
+        ];
 
-        // 加载模型（首次加载稍慢，后续缓存，秒开）
-        async function initChatModel() {
-            addMessage('正在加载对话模型...（首次加载约10秒，后续无限制使用）', false);
-            // 加载开源对话模型（DistilGPT2，体积小、适合前端）
-            generator = await window.transformers.pipeline('text-generation', 'Xenova/distilgpt2');
-            addMessage('模型加载完成！可以开始聊天啦～', false);
-        }
-
-        // 添加消息到对话界面
-        function addMessage(content, isUser = false) {
+        // 1. 向对话界面添加消息
+        function addMessage(content, isUser) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
-            messageDiv.textContent = content;
+            messageDiv.className = isUser ? "user-message" : "ai-message";
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = "message-content";
+            messageContent.textContent = content;
+
+            messageDiv.appendChild(messageContent);
             chatMessages.appendChild(messageDiv);
+
+            // 自动滚动到底部，显示最新消息
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 纯前端对话生成（无API，无次数限制，基于上下文回复）
-        async function generateReply(userText) {
+        // 2. 调用通义千问 API 获取回复
+        async function getQwenReply(prompt) {
             try {
-                // 更新对话历史（保留最近5轮，避免模型过载）
-                chatHistory.push(`用户：${userText}`);
-                if (chatHistory.length > 10) chatHistory.splice(0, 2); // 只保留最近5轮对话
+                // 更新对话上下文（添加用户消息）
+                chatContext.push({ role: "user", content: prompt });
 
-                // 构造模型输入（包含上下文，让回复更连贯）
-                const inputText = chatHistory.join('\n') + '\nAI：';
-
-                // 模型生成回复（控制长度，避免内容过长）
-                const result = await generator(inputText, {
-                    max_new_tokens: 100, // 最大回复长度
-                    temperature: 0.7, // 随机性（0-1，越高越灵活）
-                    top_p: 0.9, // 采样策略
-                    repetition_penalty: 1.2, // 避免重复回复
-                    do_sample: true, // 启用采样，让回复更自然
+                // 构造请求参数
+                const requestData = JSON.stringify({
+                    model: "qwen-turbo", // 千问轻量版，免费额度充足、响应快
+                    messages: chatContext,
+                    temperature: 0.7, // 回复随机性（0-1，越高越灵活）
+                    max_tokens: 1024 // 最大回复长度
                 });
 
-                // 提取并整理回复（去掉输入前缀，只保留AI生成的内容）
-                let reply = result[0].generated_text.replace(inputText, '').trim();
-                // 避免回复为空
-                if (!reply) reply = '哈哈，这个话题我有点懵～ 换个话题聊聊吧！';
+                // 发送 POST 请求到千问 API
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${QWEN_API_KEY}`, // 千问 API 认证
+                        "x-cors-api-key": "temp_your_key" // 免费跨域代理所需，无需修改
+                    },
+                    body: requestData
+                });
 
-                // 更新对话历史
-                chatHistory.push(`AI：${reply}`);
-                return reply;
+                // 处理响应错误
+                if (!response.ok) {
+                    throw new Error(`接口响应失败：${response.status}`);
+                }
+
+                const data = await response.json();
+                const aiReply = data.choices[0].message.content;
+
+                // 更新对话上下文（添加 AI 回复，保留上下文）
+                chatContext.push({ role: "assistant", content: aiReply });
+
+                // 限制上下文长度（最多保留 10 轮对话，避免过载）
+                if (chatContext.length > 22) {
+                    chatContext.splice(1, 2); // 保留 system 消息，删除最早的一轮用户+AI 消息
+                }
+
+                return aiReply;
             } catch (error) {
-                console.error('对话生成失败:', error);
-                return '抱歉，我暂时没反应过来～ 再问我一次吧！';
+                console.error("API 调用失败：", error);
+                return "抱歉，我暂时无法回复你的消息，请检查 API-Key 是否有效或稍后再试～";
             }
         }
 
-        // 发送按钮点击事件
+        // 3. 发送按钮点击事件
         sendBtn.addEventListener('click', async () => {
             const userText = userInput.value.trim();
-            if (!userText) return;
+            if (!userText) return; // 空内容不发送
 
             // 添加用户消息到界面
             addMessage(userText, true);
-            userInput.value = '';
+            userInput.value = ""; // 清空输入框
 
-            // 添加“思考中”提示
-            const loadingMsg = addMessage('正在思考中...', false);
+            // 添加“正在思考中”提示
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = "ai-message loading";
+            loadingDiv.innerHTML = '<div class="message-content">正在思考中...</div>';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            // 调用纯前端模型生成回复
-            const aiReply = await generateReply(userText);
-            
-            // 替换“思考中”为真实回复
-            loadingMsg.textContent = aiReply;
+            // 获取 AI 回复并替换提示
+            const aiReply = await getQwenReply(userText);
+            chatMessages.removeChild(loadingDiv);
+            addMessage(aiReply, false);
         });
 
-        // 回车键触发发送
+        // 4. 回车键触发发送
         userInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendBtn.click();
+            if (e.key === "Enter") {
+                sendBtn.click();
+            }
         });
 
-        // 页面加载完成后初始化模型
-        window.onload = async () => {
-            await initChatModel();
+        // 5. 页面加载完成后添加欢迎消息
+        window.onload = () => {
+            addMessage("你好！我是通义千问 AI 助手，有什么可以帮到你的吗？", false);
         };
     </script>
 </body>
