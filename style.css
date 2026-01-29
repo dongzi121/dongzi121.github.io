@@ -1,0 +1,45 @@
+/* 全局样式重置，消除浏览器默认的边距和间距 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 页面整体背景和文字配置 */
+body {
+    background-color: #f5f5f5; /* 浅灰色背景，不刺眼 */
+    font-family: "微软雅黑", "宋体", sans-serif; /* 适配中文显示 */
+    text-align: center; /* 所有文字居中对齐 */
+    padding-top: 80px; /* 顶部留出间距，避免贴顶 */
+}
+
+/* 内容容器，让文字区域更规整 */
+.container {
+    width: 600px; /* 容器宽度，避免文字拉得太宽 */
+    max-width: 90%; /* 适配手机端，小屏幕时自动收缩 */
+    margin: 0 auto; /* 让容器水平居中 */
+    background-color: white; /* 白色容器背景，突出内容 */
+    padding: 40px 20px; /* 容器内上下、左右留白 */
+    border-radius: 10px; /* 圆角边框，更美观 */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* 轻微阴影，增加立体感 */
+}
+
+/* 标题文字样式 */
+h1 {
+    color: #2c3e50; /* 深灰蓝色，醒目不张扬 */
+    margin-bottom: 25px; /* 标题和下方段落留出间距 */
+    font-size: 28px; /* 标题字体大小 */
+}
+
+/* 普通段落文字样式 */
+p {
+    color: #666; /* 浅灰色文字，保护视力 */
+    font-size: 16px; /* 段落字体大小 */
+    margin-bottom: 15px; /* 段落之间留出间距 */
+    line-height: 1.6; /* 行高，让文字更易阅读 */
+}
+
+/* 最后一个段落去掉底部间距，避免多余留白 */
+.container p:last-child {
+    margin-bottom: 0;
+}
