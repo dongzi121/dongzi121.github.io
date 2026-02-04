@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的网页对话</title>
+    <title>星火大模型-对话助手</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="chat-wrapper">
-        <h1>LLM学习-对话助手网页版</h1>
+        <h1>LLM学习-星火对话助手</h1>
         <!-- 对话消息展示区 -->
         <div class="chat-messages" id="chatMessages"></div>
         <!-- 输入框与发送按钮 -->
@@ -20,22 +20,14 @@
 
     <script>
         // ************************ 唯一需要修改的地方 ************************
-        // 替换成你自己的通义千问 API-Key
-        const QWEN_API_KEY = "skskskssk";
+        // 替换成你的 Flask 后端地址（本地测试：http://localhost:5000，部署后改服务器IP/域名）
+        const BACKEND_URL = "http://localhost:5000/chat";
         // ******************************************************************
-
-        // 通义千问 OpenAI 兼容版接口（带免费跨域代理，解决前端跨域限制）
-        const API_URL = "https://proxy.cors.sh/https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
         // 获取页面元素
         const chatMessages = document.getElementById('chatMessages');
         const userInput = document.getElementById('userInput');
         const sendBtn = document.getElementById('sendBtn');
-
-        // 对话上下文（保存历史消息，让回复更连贯）
-        let chatContext = [
-            { role: "system", content: "你是一个友好的AI助手，回答简洁明了，通俗易懂。" }
-        ];
 
         // 1. 向对话界面添加消息
         function addMessage(content, isUser) {
@@ -44,36 +36,29 @@
             
             const messageContent = document.createElement('div');
             messageContent.className = "message-content";
-            messageContent.textContent = content;
+            // 处理换行（星火回复可能有\n，转成<br>）
+            messageContent.innerHTML = content.replace(/\n/g, '<br>');
 
             messageDiv.appendChild(messageContent);
             chatMessages.appendChild(messageDiv);
 
-            // 自动滚动到底部，显示最新消息
+            // 自动滚动到底部
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 2. 调用通义千问 API 获取回复
-        async function getQwenReply(prompt) {
+        // 2. 调用后端接口获取星火回复
+        async function getSparkReply(prompt) {
             try {
-                // 更新对话上下文（添加用户消息）
-                chatContext.push({ role: "user", content: prompt });
-
                 // 构造请求参数
                 const requestData = JSON.stringify({
-                    model: "qwen-turbo", // 千问轻量版，免费额度充足、响应快
-                    messages: chatContext,
-                    temperature: 0.7, // 回复随机性（0-1，越高越灵活）
-                    max_tokens: 1024 // 最大回复长度
+                    message: prompt
                 });
 
-                // 发送 POST 请求到千问 API
-                const response = await fetch(API_URL, {
+                // 发送 POST 请求到后端
+                const response = await fetch(BACKEND_URL, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${QWEN_API_KEY}`, // 千问 API 认证
-                        "x-cors-api-key": "temp_your_key" // 免费跨域代理所需，无需修改
+                        "Content-Type": "application/json"
                     },
                     body: requestData
                 });
@@ -84,20 +69,14 @@
                 }
 
                 const data = await response.json();
-                const aiReply = data.choices[0].message.content;
-
-                // 更新对话上下文（添加 AI 回复，保留上下文）
-                chatContext.push({ role: "assistant", content: aiReply });
-
-                // 限制上下文长度（最多保留 10 轮对话，避免过载）
-                if (chatContext.length > 22) {
-                    chatContext.splice(1, 2); // 保留 system 消息，删除最早的一轮用户+AI 消息
+                if (data.error) {
+                    throw new Error(data.error);
                 }
 
-                return aiReply;
+                return data.reply;
             } catch (error) {
-                console.error("API 调用失败：", error);
-                return "抱歉，我暂时无法回复你的消息，请检查 API-Key 是否有效或稍后再试～";
+                console.error("调用失败：", error);
+                return `抱歉，服务暂时不可用：${error.message}`;
             }
         }
 
@@ -118,24 +97,23 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
             // 获取 AI 回复并替换提示
-            const aiReply = await getQwenReply(userText);
+            const aiReply = await getSparkReply(userText);
             chatMessages.removeChild(loadingDiv);
             addMessage(aiReply, false);
         });
 
         // 4. 回车键触发发送
         userInput.addEventListener('keydown', (e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault(); // 阻止换行
                 sendBtn.click();
             }
         });
 
         // 5. 页面加载完成后添加欢迎消息
         window.onload = () => {
-            addMessage("初次见面，请多指教", false);
+            addMessage("你好！我是星火大模型助手，有什么可以帮你的？", false);
         };
     </script>
 </body>
 </html>
-
-
