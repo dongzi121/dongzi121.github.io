@@ -92,7 +92,7 @@
             // 添加“正在思考中”提示
             const loadingDiv = document.createElement('div');
             loadingDiv.className = "ai-message loading";
-            loadingDiv.innerHTML = '<div class="message-content">正在思考中...</div>';
+            loadingDiv.innerHTML = '<div class="message-content">emmmm...</div>';
             chatMessages.appendChild(loadingDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -112,8 +112,9 @@
 
         // 5. 页面加载完成后添加欢迎消息
         window.onload = () => {
-            addMessage("你好！我是星火大模型助手，有什么可以帮你的？", false);
+            addMessage("需要帮助吗？", false);
         };
     </script>
 </body>
 </html>
+
